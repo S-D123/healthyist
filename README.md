@@ -277,11 +277,3 @@ This project is created for **personal use and learning purposes**. Not licensed
 - Icons and design inspired by Material Design
 
 ---
-
-<div align="center">
-
-### Made with 💜 by a hobbyist, for hobbyists
-
-**Start building better habits today!** 🎯
-
-</div>
