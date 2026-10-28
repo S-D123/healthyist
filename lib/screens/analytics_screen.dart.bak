@@ -1,0 +1,2201 @@
+import 'dart:math' as math;
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import '../models/hobby.dart';
+import '../services/analytics_service.dart';
+import '../services/hobby_service.dart';
+import '../utils/page_transitions.dart';
+import 'add_hobby_screen.dart';
+
+class AnalyticsScreen extends StatefulWidget {
+  final List<Hobby> hobbies;
+  final VoidCallback onBack;
+  final Function(int) onNavigate;
+  final Future<void> Function() onRefresh;
+
+  const AnalyticsScreen({
+    Key? key,
+    required this.hobbies,
+    required this.onBack,
+    required this.onNavigate,
+    required this.onRefresh,
+  }) : super(key: key);
+
+  @override
+  State<AnalyticsScreen> createState() => _AnalyticsScreenState();
+}
+
+class _AnalyticsScreenState extends State<AnalyticsScreen> {
+  String _selectedPeriod = 'Weekly';
+  int? _selectedDataPointIndex;
+  final HobbyService _hobbyService = HobbyService();
+
+  @override
+  void initState() {
+    super.initState();
+    AnalyticsService().logAnalyticsViewed();
+  }
+
+  @override
+  void didUpdateWidget(AnalyticsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Force a rebuild when hobbies list changes
+    if (oldWidget.hobbies != widget.hobbies) {
+      setState(() {});
+    }
+  }
+
+  int get currentStreak {
+    if (widget.hobbies.isEmpty) return 0;
+
+    int streak = 0;
+    final today = DateTime.now();
+
+    for (int i = 0; i < 365; i++) {
+      final date = today.subtract(Duration(days: i));
+      final dateKey = DateFormat('yyyy-MM-dd').format(date);
+
+      bool anyTaskCompleted = false;
+      for (var hobby in widget.hobbies) {
+        if (hobby.completions[dateKey]?.completed == true) {
+          anyTaskCompleted = true;
+          break;
+        }
+      }
+
+      if (anyTaskCompleted) {
+        streak++;
+      } else if (i > 0) {
+        break;
+      }
+    }
+    return streak;
+  }
+
+  int get bestStreak {
+    if (widget.hobbies.isEmpty) return 0;
+    
+    // Calculate the longest overall streak (any task completed per day)
+    // This matches the logic of currentStreak but looks at ALL history
+    int maxOverallStreak = 0;
+    int currentOverallStreak = 0;
+    final today = DateTime.now();
+    
+    // Go back 365 days and find longest consecutive streak
+    for (int startDay = 0; startDay < 365; startDay++) {
+      currentOverallStreak = 0;
+      
+      for (int i = startDay; i < 365; i++) {
+        final date = today.subtract(Duration(days: i));
+        final dateKey = DateFormat('yyyy-MM-dd').format(date);
+        
+        bool anyTaskCompleted = false;
+        for (var hobby in widget.hobbies) {
+          if (hobby.completions[dateKey]?.completed == true) {
+            anyTaskCompleted = true;
+            break;
+          }
+        }
+        
+        if (anyTaskCompleted) {
+          currentOverallStreak++;
+          if (currentOverallStreak > maxOverallStreak) {
+            maxOverallStreak = currentOverallStreak;
+          }
+        } else {
+          break; // Streak broken
+        }
+      }
+    }
+    
+    print('📊 Analytics bestStreak: $maxOverallStreak (calculated from overall completion history)');
+    return maxOverallStreak;
+  }
+
+  int get totalCompleted {
+    int total = 0;
+    for (var hobby in widget.hobbies) {
+      total += hobby.completions.values.where((c) => c.completed).length;
+    }
+    return total;
+  }
+
+  int get totalCompletedThisWeek {
+    int total = 0;
+    for (int i = 0; i < 7; i++) {
+      final date = DateTime.now().subtract(Duration(days: i));
+      final dateKey = DateFormat('yyyy-MM-dd').format(date);
+      for (var hobby in widget.hobbies) {
+        if (hobby.completions[dateKey]?.completed == true) {
+          total++;
+        }
+      }
+    }
+    return total;
+  }
+
+  int get totalCompletedLastWeek {
+    int total = 0;
+    for (int i = 7; i < 14; i++) {
+      final date = DateTime.now().subtract(Duration(days: i));
+      final dateKey = DateFormat('yyyy-MM-dd').format(date);
+      for (var hobby in widget.hobbies) {
+        if (hobby.completions[dateKey]?.completed == true) {
+          total++;
+        }
+      }
+    }
+    return total;
+  }
+
+  int get totalCompletedThisMonth {
+    int total = 0;
+    for (int i = 0; i < 30; i++) {
+      final date = DateTime.now().subtract(Duration(days: i));
+      final dateKey = DateFormat('yyyy-MM-dd').format(date);
+      for (var hobby in widget.hobbies) {
+        if (hobby.completions[dateKey]?.completed == true) {
+          total++;
+        }
+      }
+    }
+    return total;
+  }
+
+  int get totalCompletedLastMonth {
+    int total = 0;
+    for (int i = 30; i < 60; i++) {
+      final date = DateTime.now().subtract(Duration(days: i));
+      final dateKey = DateFormat('yyyy-MM-dd').format(date);
+      for (var hobby in widget.hobbies) {
+        if (hobby.completions[dateKey]?.completed == true) {
+          total++;
+        }
+      }
+    }
+    return total;
+  }
+
+  int get totalCompletedThisYear {
+    int total = 0;
+    for (int i = 0; i < 365; i++) {
+      final date = DateTime.now().subtract(Duration(days: i));
+      final dateKey = DateFormat('yyyy-MM-dd').format(date);
+      for (var hobby in widget.hobbies) {
+        if (hobby.completions[dateKey]?.completed == true) {
+          total++;
+        }
+      }
+    }
+    return total;
+  }
+
+  int get totalCompletedLastYear {
+    int total = 0;
+    for (int i = 365; i < 730; i++) {
+      final date = DateTime.now().subtract(Duration(days: i));
+      final dateKey = DateFormat('yyyy-MM-dd').format(date);
+      for (var hobby in widget.hobbies) {
+        if (hobby.completions[dateKey]?.completed == true) {
+          total++;
+        }
+      }
+    }
+    return total;
+  }
+
+  double get currentGrowth {
+    int currentPeriod;
+    int previousPeriod;
+    
+    switch (_selectedPeriod) {
+      case 'Weekly':
+        currentPeriod = totalCompletedThisWeek;
+        previousPeriod = totalCompletedLastWeek;
+        break;
+      case 'Monthly':
+        currentPeriod = totalCompletedThisMonth;
+        previousPeriod = totalCompletedLastMonth;
+        break;
+      default:
+        currentPeriod = totalCompletedThisWeek;
+        previousPeriod = totalCompletedLastWeek;
+    }
+    
+    if (previousPeriod == 0) {
+      return currentPeriod > 0 ? 100 : 0;
+    }
+    return ((currentPeriod - previousPeriod) / previousPeriod * 100);
+  }
+
+  double get weeklyGrowth {
+    if (totalCompletedLastWeek == 0) {
+      return totalCompletedThisWeek > 0 ? 100 : 0;
+    }
+    return ((totalCompletedThisWeek - totalCompletedLastWeek) /
+            totalCompletedLastWeek *
+            100);
+  }
+
+  // Find the earliest date with any completion data
+  DateTime? get _earliestCompletionDate {
+    DateTime? earliest;
+    
+    for (var hobby in widget.hobbies) {
+      for (var dateKey in hobby.completions.keys) {
+        try {
+          final date = DateTime.parse(dateKey);
+          if (earliest == null || date.isBefore(earliest)) {
+            earliest = date;
+          }
+        } catch (e) {
+          // Skip invalid dates
+        }
+      }
+    }
+    
+    return earliest;
+  }
+
+  List<double> get performanceData {
+    List<double> data = [];
+    final now = DateTime.now();
+    
+    switch (_selectedPeriod) {
+      case 'Weekly':
+        // Always show 7 days
+        for (int i = 6; i >= 0; i--) {
+          final date = now.subtract(Duration(days: i));
+          final dateKey = DateFormat('yyyy-MM-dd').format(date);
+          int count = 0;
+          for (var hobby in widget.hobbies) {
+            if (hobby.completions[dateKey]?.completed == true) {
+              count++;
+            }
+          }
+          data.add(count.toDouble());
+        }
+        break;
+        
+      case 'Monthly':
+        // Always show 30 days
+        for (int i = 29; i >= 0; i--) {
+          final date = now.subtract(Duration(days: i));
+          final dateKey = DateFormat('yyyy-MM-dd').format(date);
+          int count = 0;
+          for (var hobby in widget.hobbies) {
+            if (hobby.completions[dateKey]?.completed == true) {
+              count++;
+            }
+          }
+          data.add(count.toDouble());
+        }
+        break;
+        
+      default:
+        // Default to weekly
+        for (int i = 6; i >= 0; i--) {
+          final date = now.subtract(Duration(days: i));
+          final dateKey = DateFormat('yyyy-MM-dd').format(date);
+          int count = 0;
+          for (var hobby in widget.hobbies) {
+            if (hobby.completions[dateKey]?.completed == true) {
+              count++;
+            }
+          }
+          data.add(count.toDouble());
+        }
+    }
+    
+    return data;
+  }
+
+  String get performanceTitle {
+    switch (_selectedPeriod) {
+      case 'Weekly':
+        return '7-Day Performance';
+      case 'Monthly':
+        return '30-Day Performance';
+      default:
+        return '7-Day Performance';
+    }
+  }
+
+  List<String> get performanceLabels {
+    final now = DateTime.now();
+    switch (_selectedPeriod) {
+      case 'Weekly':
+        // Return 7 day labels (Mon, Tue, Wed, etc.)
+        return List.generate(7, (i) {
+          final date = now.subtract(Duration(days: 6 - i));
+          return DateFormat('E').format(date); // Mon, Tue, Wed
+        });
+      case 'Monthly':
+        // Return 30 day labels (show every 5th day)
+        return List.generate(30, (i) {
+          final date = now.subtract(Duration(days: 29 - i));
+          return DateFormat('d').format(date); // 1, 2, 3, ... 30
+        });
+      default:
+        return List.generate(7, (i) {
+          final date = now.subtract(Duration(days: 6 - i));
+          return DateFormat('E').format(date);
+        });
+    }
+  }
+
+  List<Map<String, dynamic>> get activityMapData {
+    List<Map<String, dynamic>> data = [];
+    final now = DateTime.now();
+    
+    switch (_selectedPeriod) {
+      case 'Weekly':
+        // Show current week (7 days)
+        final monday = now.subtract(Duration(days: now.weekday - 1));
+        for (int i = 0; i < 7; i++) {
+          final date = monday.add(Duration(days: i));
+          final dateKey = DateFormat('yyyy-MM-dd').format(date);
+          
+          int count = 0;
+          for (var hobby in widget.hobbies) {
+            if (hobby.completions[dateKey]?.completed == true) {
+              count++;
+            }
+          }
+          
+          data.add({
+            'date': date,
+            'count': count,
+            'opacity': count == 0 ? 0.1 : (count / 4).clamp(0.2, 1.0),
+          });
+        }
+        break;
+        
+      case 'Monthly':
+        // Show last 28 days (4 weeks)
+        for (int i = 27; i >= 0; i--) {
+          final date = now.subtract(Duration(days: i));
+          final dateKey = DateFormat('yyyy-MM-dd').format(date);
+          
+          int count = 0;
+          for (var hobby in widget.hobbies) {
+            if (hobby.completions[dateKey]?.completed == true) {
+              count++;
+            }
+          }
+          
+          data.add({
+            'date': date,
+            'count': count,
+            'opacity': count == 0 ? 0.1 : (count / 4).clamp(0.2, 1.0),
+          });
+        }
+        break;
+        
+      case 'Yearly':
+        // Show last 52 weeks
+        for (int week = 51; week >= 0; week--) {
+          int weekCount = 0;
+          final weekStart = now.subtract(Duration(days: week * 7));
+          
+          for (int day = 0; day < 7; day++) {
+            final date = weekStart.add(Duration(days: day));
+            final dateKey = DateFormat('yyyy-MM-dd').format(date);
+            
+            for (var hobby in widget.hobbies) {
+              if (hobby.completions[dateKey]?.completed == true) {
+                weekCount++;
+              }
+            }
+          }
+          
+          data.add({
+            'date': weekStart,
+            'count': weekCount,
+            'opacity': weekCount == 0 ? 0.1 : (weekCount / 20).clamp(0.2, 1.0),
+          });
+        }
+        break;
+        
+      default:
+        // Default to weekly
+        final monday = now.subtract(Duration(days: now.weekday - 1));
+        for (int i = 0; i < 7; i++) {
+          final date = monday.add(Duration(days: i));
+          final dateKey = DateFormat('yyyy-MM-dd').format(date);
+          
+          int count = 0;
+          for (var hobby in widget.hobbies) {
+            if (hobby.completions[dateKey]?.completed == true) {
+              count++;
+            }
+          }
+          
+          data.add({
+            'date': date,
+            'count': count,
+            'opacity': count == 0 ? 0.1 : (count / 4).clamp(0.2, 1.0),
+          });
+        }
+    }
+    
+    return data;
+  }
+
+  String get activityMapTitle {
+    final now = DateTime.now();
+    switch (_selectedPeriod) {
+      case 'Weekly':
+        return 'This Week';
+      case 'Monthly':
+        return DateFormat('MMMM').format(now);
+      case 'Yearly':
+        return now.year.toString();
+      default:
+        return DateFormat('MMMM').format(now);
+    }
+  }
+
+  void _handleChartTouch(Offset localPosition, List<double> chartData) {
+    if (chartData.isEmpty) return;
+    
+    final index = (localPosition.dx / MediaQuery.of(context).size.width * chartData.length).floor().clamp(0, chartData.length - 1);
+    
+    if (index >= 0 && index < chartData.length && index != _selectedDataPointIndex) {
+      setState(() => _selectedDataPointIndex = index);
+    }
+  }
+
+  double _calculateTooltipPosition(int index, int dataLength, BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final chartWidth = screenWidth - 64; // accounting for padding
+    final position = (index / (dataLength - 1).clamp(1, double.infinity)) * chartWidth;
+    
+    // Keep tooltip within bounds (32px padding on each side, tooltip width ~100px)
+    const tooltipWidth = 100.0;
+    const padding = 32.0;
+    
+    // Center the tooltip on the data point
+    var leftPosition = position - (tooltipWidth / 2) + padding;
+    
+    // Clamp to screen bounds
+    if (leftPosition < padding) {
+      leftPosition = padding;
+    } else if (leftPosition + tooltipWidth > screenWidth - padding) {
+      leftPosition = screenWidth - padding - tooltipWidth;
+    }
+    
+    return leftPosition;
+  }
+
+  String _getTooltipText(int index, List<double> chartData) {
+    final value = chartData[index].toInt();
+    
+    // Only show task count, no "days ago" message
+    if (value == 1) {
+      return '1 task';
+    } else {
+      return '$value tasks';
+    }
+  }
+
+  Future<void> _refreshData() async {
+    await widget.onRefresh();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF1A1625),
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: widget.onRefresh,
+                color: const Color(0xFF590df2),
+                backgroundColor: const Color(0xFF161616),
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 24),
+                      _buildStatsCards(),
+                      const SizedBox(height: 24),
+                      _buildPeriodSelector(),
+                      const SizedBox(height: 24),
+                      _buildPerformanceChart(),
+                      const SizedBox(height: 24),
+                      _buildBarChart(),
+                      const SizedBox(height: 32),
+                      _buildActivityMap(),
+                      const SizedBox(height: 32),
+                      _buildAllTasks(),
+                      const SizedBox(height: 100),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: _buildBottomNav(),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
+      child: const Text(
+        'Analytics',
+        textAlign: TextAlign.left,
+        style: TextStyle(
+          fontSize: 28,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatsCards() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final cardWidth = (constraints.maxWidth - 32) / 3; // 3 cards with spacing
+          final numberFontSize = cardWidth * 0.28;
+          final labelFontSize = cardWidth * 0.11;
+          
+          return Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 140,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF161616),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: const Color(0x0DFFFFFF)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.25),
+                        blurRadius: 30,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              'Current Streak',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF94A3B8),
+                                letterSpacing: 1.0,
+                                height: 1.3,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.local_fire_department,
+                            color: Color(0xFFFF6B35),
+                            size: 18,
+                          ),
+                        ],
+                      ),
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                '$currentStreak',
+                                style: TextStyle(
+                                  fontSize: numberFontSize,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  height: 1,
+                                  letterSpacing: -1,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Days',
+                                style: TextStyle(
+                                  fontSize: labelFontSize,
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFFCBD5E1),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const Text(
+                        'Keep it up!',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF10B981),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  height: 140,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF161616),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: const Color(0x0DFFFFFF)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.25),
+                        blurRadius: 30,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              'Best Streak',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF94A3B8),
+                                letterSpacing: 1.0,
+                                height: 1.3,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.star,
+                            color: Color(0xFFFFD700),
+                            size: 18,
+                          ),
+                        ],
+                      ),
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                '$bestStreak',
+                                style: TextStyle(
+                                  fontSize: numberFontSize,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  height: 1,
+                                  letterSpacing: -1,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Days',
+                                style: TextStyle(
+                                  fontSize: labelFontSize,
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFFCBD5E1),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const Text(
+                        'Personal Best',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFFFD700),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  height: 140,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF161616),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: const Color(0x0DFFFFFF)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.25),
+                        blurRadius: 30,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              'Total Done',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF94A3B8),
+                                letterSpacing: 1.0,
+                                height: 1.3,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.emoji_events,
+                            color: Color(0xFF590df2),
+                            size: 18,
+                          ),
+                        ],
+                      ),
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                '$totalCompleted',
+                                style: TextStyle(
+                                  fontSize: numberFontSize,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  height: 1,
+                                  letterSpacing: -1,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Tasks',
+                                style: TextStyle(
+                                  fontSize: labelFontSize,
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFFCBD5E1),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${completionRate.toInt()}% Today',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF10B981),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  double get completionRate {
+    if (widget.hobbies.isEmpty) return 0;
+
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    int completedToday = 0;
+
+    for (var hobby in widget.hobbies) {
+      if (hobby.completions[today]?.completed == true) {
+        completedToday++;
+      }
+    }
+
+    return widget.hobbies.length > 0
+        ? (completedToday / widget.hobbies.length * 100)
+        : 0;
+  }
+
+  Widget _buildPeriodSelector() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: const Color(0xFF221834),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            _buildPeriodButton('WEEKLY', _selectedPeriod == 'Weekly'),
+            _buildPeriodButton('MONTHLY', _selectedPeriod == 'Monthly'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPeriodButton(String label, bool isSelected) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          final period = label == 'WEEKLY' ? 'Weekly' : 'Monthly';
+          setState(() => _selectedPeriod = period);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF6C3FFF) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: isSelected ? Colors.white : const Color(0xFFa490cb),
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPerformanceChart() {
+    final growth = currentGrowth;
+    final showBadge = growth != 0;
+    final growthSign = growth >= 0 ? '+' : '';
+    final chartData = performanceData;
+    final labels = performanceLabels;
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                performanceTitle,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              if (showBadge)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: growth >= 0 
+                      ? const Color(0xFF10B981).withOpacity(0.1)
+                      : const Color(0xFFFF6B35).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '$growthSign${growth.toStringAsFixed(1)}%',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: growth >= 0 
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFFFF6B35),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFF161616),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0x0DFFFFFF)),
+            ),
+            child: Column(
+              children: [
+                GestureDetector(
+                  onTapDown: (details) {
+                    _handleChartTouch(details.localPosition, chartData);
+                  },
+                  onHorizontalDragStart: (details) {
+                    _handleChartTouch(details.localPosition, chartData);
+                  },
+                  onHorizontalDragUpdate: (details) {
+                    _handleChartTouch(details.localPosition, chartData);
+                  },
+                  onHorizontalDragEnd: (details) {
+                    Future.delayed(const Duration(milliseconds: 500), () {
+                      if (mounted) {
+                        setState(() => _selectedDataPointIndex = null);
+                      }
+                    });
+                  },
+                  child: SizedBox(
+                    height: 120,
+                    child: Stack(
+                      children: [
+                        CustomPaint(
+                          size: const Size(double.infinity, 120),
+                          painter: PerformanceChartPainter(
+                            chartData,
+                            selectedIndex: _selectedDataPointIndex,
+                            earliestDate: _earliestCompletionDate,
+                          ),
+                        ),
+                        if (_selectedDataPointIndex != null && _selectedDataPointIndex! < chartData.length)
+                          Positioned(
+                            top: 8, // Position below the top edge with padding
+                            left: _calculateTooltipPosition(_selectedDataPointIndex!, chartData.length, context),
+                            child: Container(
+                              constraints: const BoxConstraints(
+                                minWidth: 60,
+                                maxWidth: 120,
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF8B5CF6),
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF8B5CF6).withOpacity(0.3),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                _getTooltipText(_selectedDataPointIndex!, chartData),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: labels
+                      .map((label) => Text(
+                            label,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF71717A),
+                              letterSpacing: 2.0,
+                            ),
+                          ))
+                      .toList(),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBarChart() {
+    final chartData = performanceData;
+    final labels = performanceLabels;
+    
+    // Safety check - ensure we have data
+    if (chartData.isEmpty || labels.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    // Ensure chartData and labels have same length
+    final dataLength = chartData.length < labels.length ? chartData.length : labels.length;
+    final safeChartData = chartData.take(dataLength).toList();
+    final safeLabels = labels.take(dataLength).toList();
+    
+    // Find max value for scaling
+    final maxValue = safeChartData.isEmpty ? 1.0 : safeChartData.reduce((a, b) => a > b ? a : b);
+    final scaledMax = maxValue == 0 ? 10.0 : maxValue * 1.2; // Add 20% padding
+    
+    // Calculate Y-axis scale markers
+    final yAxisSteps = 5;
+    final yAxisStep = (scaledMax / yAxisSteps).ceil();
+    
+    // Dynamic title based on period
+    String chartTitle;
+    switch (_selectedPeriod) {
+      case 'Weekly':
+        chartTitle = '7-Day Performance';
+        break;
+      case 'Monthly':
+        chartTitle = '30-Day Performance';
+        break;
+      default:
+        chartTitle = 'Daily Performance';
+    }
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            chartTitle,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFF161616),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0x0DFFFFFF)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // Y-axis labels
+                    SizedBox(
+                      width: 30,
+                      height: 200,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: List.generate(yAxisSteps + 1, (index) {
+                          final value = (yAxisSteps - index) * yAxisStep;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Text(
+                              '$value',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF71717A),
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                    // Bar chart - all fit on screen
+                    Expanded(
+                      child: SizedBox(
+                        height: 200,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: List.generate(safeChartData.length, (index) {
+                            final value = safeChartData[index];
+                            final barHeight = scaledMax > 0 ? (value / scaledMax) * 160 : 0;
+                            
+                            // Dark, muted colors for better visibility
+                            final colors = [
+                              const Color(0xFF6366F1), // Dark indigo
+                              const Color(0xFF7C3AED), // Dark purple
+                              const Color(0xFF2563EB), // Dark blue
+                              const Color(0xFF059669), // Dark emerald
+                              const Color(0xFFD97706), // Dark amber
+                              const Color(0xFFDC2626), // Dark red
+                              const Color(0xFF4338CA), // Deep indigo
+                            ];
+                            
+                            final colorIndex = index % colors.length;
+                            final barColor = colors[colorIndex];
+                            
+                            return Expanded(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: _selectedPeriod == 'Monthly' ? 0.5 : 1,
+                                ),
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () {
+                                    // Show value on tap with haptic feedback
+                                    HapticFeedback.lightImpact();
+                                    ScaffoldMessenger.of(context).clearSnackBars();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              '${safeLabels[index]}',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                            const Text(' : '),
+                                            Text(
+                                              '${value.toInt()}',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 16,
+                                                color: barColor,
+                                              ),
+                                            ),
+                                            const Text(' completions'),
+                                          ],
+                                        ),
+                                        duration: const Duration(milliseconds: 1200),
+                                        backgroundColor: const Color(0xFF2A2738),
+                                        behavior: SnackBarBehavior.floating,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                      ),
+                                    );
+                                  },
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      // Animated bar with solid dark color
+                                      TweenAnimationBuilder<double>(
+                                        duration: Duration(milliseconds: 600 + (index * 80)),
+                                        curve: Curves.easeOutCubic,
+                                        tween: Tween(begin: 0.0, end: barHeight.clamp(2.0, 160.0).toDouble()),
+                                        builder: (context, animatedHeight, child) {
+                                          return Container(
+                                            width: double.infinity,
+                                            height: animatedHeight,
+                                            decoration: BoxDecoration(
+                                              color: barColor,
+                                              borderRadius: const BorderRadius.vertical(
+                                                top: Radius.circular(3),
+                                              ),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: barColor.withOpacity(0.4),
+                                                  blurRadius: 2,
+                                                  offset: const Offset(0, 1),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      // Show labels only for weekly (7 bars) or every 5th for monthly
+                                      if (_selectedPeriod == 'Weekly' || 
+                                          (_selectedPeriod == 'Monthly' && (index % 5 == 0 || index == safeLabels.length - 1)))
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 4),
+                                          child: Text(
+                                            safeLabels[index],
+                                            style: const TextStyle(
+                                              fontSize: 8,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF71717A),
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.visible,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+    
+    // Dark, muted colors for better visibility
+    final colors = [
+      const Color(0xFF6366F1), // Dark indigo
+      const Color(0xFF7C3AED), // Dark purple
+      const Color(0xFF2563EB), // Dark blue
+      const Color(0xFF059669), // Dark emerald
+      const Color(0xFFD97706), // Dark amber
+      const Color(0xFFDC2626), // Dark red
+      const Color(0xFF4338CA), // Deep indigo
+    ];
+    
+    final colorIndex = index % colors.length;
+    final barColor = colors[colorIndex];
+    
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 1),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            // Show value on tap with haptic feedback
+            HapticFeedback.lightImpact();
+            ScaffoldMessenger.of(context).clearSnackBars();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '${safeLabels[index]}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const Text(' : '),
+                    Text(
+                      '${value.toInt()}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                        color: barColor,
+                      ),
+                    ),
+                    const Text(' completions'),
+                  ],
+                ),
+                duration: const Duration(milliseconds: 1200),
+                backgroundColor: const Color(0xFF2A2738),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              ),
+            );
+          },
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              // Animated bar with solid dark color
+              TweenAnimationBuilder<double>(
+                duration: Duration(milliseconds: 600 + (index * 80)),
+                curve: Curves.easeOutCubic,
+                tween: Tween(begin: 0.0, end: barHeight.clamp(2.0, 160.0).toDouble()),
+                builder: (context, animatedHeight, child) {
+                  return Container(
+                    width: double.infinity,
+                    height: animatedHeight,
+                    decoration: BoxDecoration(
+                      color: barColor,
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(6),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: barColor.withOpacity(0.4),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+              // X-axis label below bar
+              Text(
+                safeLabels[index],
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF71717A),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActivityMap() {
+    final now = DateTime.now();
+    const int daysToShow = 365;
+    
+    // Build 365 days of completion data
+    List<Map<String, dynamic>> yearData = [];
+    int contributionCount = 0;
+    
+    for (int i = daysToShow - 1; i >= 0; i--) {
+      final date = now.subtract(Duration(days: i));
+      final dateKey = DateFormat('yyyy-MM-dd').format(date);
+      
+      // Check if ANY task was completed on this day and track highest priority
+      bool anyCompleted = false;
+      String? highestPriority;
+      int dayTaskCount = 0; // Count tasks completed on this day
+      
+      for (var hobby in widget.hobbies) {
+        if (hobby.completions[dateKey]?.completed == true) {
+          anyCompleted = true;
+          dayTaskCount++; // Count each task completion
+          contributionCount++; // Add to total count
+          
+          // Determine highest priority (high > medium > low > default)
+          if (highestPriority == null) {
+            highestPriority = hobby.priority;
+          } else {
+            // Priority order: high > medium > low > default
+            if (hobby.priority == 'high') {
+              highestPriority = 'high';
+            } else if (hobby.priority == 'medium' && highestPriority != 'high') {
+              highestPriority = 'medium';
+            } else if (hobby.priority == 'low' && highestPriority != 'high' && highestPriority != 'medium') {
+              highestPriority = 'low';
+            }
+          }
+        }
+      }
+      
+      yearData.add({
+        'date': date,
+        'dateKey': dateKey,
+        'completed': anyCompleted,
+        'priority': highestPriority,
+      });
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '$contributionCount contribution${contributionCount != 1 ? 's' : ''}',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const Text(
+                'Last 365 days',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF94A3B8),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFF161616),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0x0DFFFFFF)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Compact calendar grid - like GitHub contributions
+                Wrap(
+                  spacing: 2,
+                  runSpacing: 2,
+                  children: yearData.map((data) => _buildActivityCell(data)).toList(),
+                ),
+                const SizedBox(height: 16),
+                // Legend - Priority colors
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    // None
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A1625),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Text(
+                      'None',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF71717A),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Low
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6BCF7F),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Text(
+                      'Low',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF71717A),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Medium
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFD93D),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Text(
+                      'Med',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF71717A),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // High
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF6B6B),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Text(
+                      'High',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF71717A),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActivityCell(Map<String, dynamic> data) {
+    final bool isCompleted = data['completed'];
+    final String? priority = data['priority'];
+    final date = data['date'] as DateTime;
+    final today = DateTime.now();
+    final isToday = date.year == today.year && 
+                    date.month == today.month && 
+                    date.day == today.day;
+    
+    Color cellColor;
+    if (isCompleted) {
+      // Use priority-based colors
+      switch (priority) {
+        case 'high':
+          cellColor = const Color(0xFFFF6B6B); // Red
+          break;
+        case 'medium':
+          cellColor = const Color(0xFFFFD93D); // Yellow
+          break;
+        case 'low':
+          cellColor = const Color(0xFF6BCF7F); // Green
+          break;
+        default:
+          cellColor = const Color(0xFF10B981); // Default green
+      }
+    } else {
+      cellColor = const Color(0xFF1A1625); // Empty/not completed
+    }
+    
+    return GestureDetector(
+      onTap: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${DateFormat('MMM d, yyyy').format(date)}: ${isCompleted ? "✓ Active" : "○ No activity"}',
+            ),
+            duration: const Duration(milliseconds: 800),
+            backgroundColor: const Color(0xFF2A2738),
+          ),
+        );
+      },
+      child: Container(
+        width: 10,
+        height: 10,
+        decoration: BoxDecoration(
+          color: cellColor,
+          borderRadius: BorderRadius.circular(2),
+          border: isToday
+              ? Border.all(
+                  color: Colors.white.withOpacity(0.6),
+                  width: 1,
+                )
+              : null,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAllTasks() {
+    if (widget.hobbies.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Completion Calendar',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Last 90 days',
+            style: TextStyle(
+              fontSize: 13,
+              color: Color(0xFF94A3B8),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Show calendar for each hobby
+          ...widget.hobbies.map((hobby) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _buildHobbyCompletionRow(hobby),
+          )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHobbyCompletionRow(Hobby hobby) {
+    // Show last 90 days (more granular than 12 weeks)
+    final int daysToShow = 90;
+    final today = DateTime.now();
+    final startDate = today.subtract(Duration(days: daysToShow - 1));
+    
+    // Build completion data for this hobby
+    List<Map<String, dynamic>> dayData = [];
+    for (int i = 0; i < daysToShow; i++) {
+      final date = startDate.add(Duration(days: i));
+      final dateKey = DateFormat('yyyy-MM-dd').format(date);
+      
+      // For daily tasks, always show completion status
+      // For weekly/monthly, check if scheduled
+      bool isScheduled = _isHobbyAvailableForDate(hobby, date);
+      bool isCompleted = hobby.completions[dateKey]?.completed == true;
+      
+      dayData.add({
+        'date': date,
+        'dateKey': dateKey,
+        'isScheduled': isScheduled,
+        'isCompleted': isCompleted,
+      });
+    }
+    
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF161616),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0x0DFFFFFF)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Hobby name with streak info
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      hobby.name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _getFrequencyText(hobby.repeatMode),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF71717A),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Streaks - Current and Best
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Current Streak
+                  if (hobby.currentStreak > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF6B35).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${hobby.currentStreak}',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFFFF6B35),
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          const Icon(
+                            Icons.local_fire_department,
+                            color: Color(0xFFFF6B35),
+                            size: 10,
+                          ),
+                        ],
+                      ),
+                    ),
+                  // Best Streak
+                  if (hobby.bestStreak > 0) ...[
+                    if (hobby.currentStreak > 0) const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFD700).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.emoji_events,
+                            color: Color(0xFFFFD700),
+                            size: 10,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            '${hobby.bestStreak}',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFFFFD700),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          // Show period
+          Text(
+            'Last 90 days',
+            style: const TextStyle(
+              fontSize: 10,
+              color: Color(0xFF71717A),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Compact calendar grid
+          Wrap(
+            spacing: 2,
+            runSpacing: 2,
+            children: dayData.map((data) => _buildCompactDayCell(data, hobby)).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactDayCell(Map<String, dynamic> data, Hobby hobby) {
+    final bool isScheduled = data['isScheduled'];
+    final bool isCompleted = data['isCompleted'];
+    
+    // Always show all 90 days with different visual states
+    Color cellColor;
+    if (!isScheduled) {
+      // Not scheduled - show subtle skeleton
+      cellColor = const Color(0xFF1A1625); // Very dark purple, subtle outline
+    } else if (isCompleted) {
+      // Scheduled and completed - priority color
+      cellColor = _getPriorityColor(hobby.priority);
+    } else {
+      // Scheduled but not completed - medium gray
+      cellColor = const Color(0xFF2A2738);
+    }
+    
+    final today = DateTime.now();
+    final cellDate = data['date'] as DateTime;
+    final isToday = cellDate.year == today.year && 
+                    cellDate.month == today.month && 
+                    cellDate.day == today.day;
+    
+    return GestureDetector(
+      onTap: () {
+        String status;
+        if (!isScheduled) {
+          status = "○ Not scheduled";
+        } else if (isCompleted) {
+          status = "✓ Completed";
+        } else {
+          status = "○ Not completed";
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${hobby.name} - ${DateFormat('MMM d').format(cellDate)}: $status',
+            ),
+            duration: const Duration(milliseconds: 800),
+            backgroundColor: const Color(0xFF2A2738),
+          ),
+        );
+      },
+      child: Container(
+        width: 10,
+        height: 10,
+        decoration: BoxDecoration(
+          color: cellColor,
+          borderRadius: BorderRadius.circular(2),
+          border: isToday
+              ? Border.all(
+                  color: Colors.white.withOpacity(0.6),
+                  width: 1,
+                )
+              : null,
+        ),
+      ),
+    );
+  }
+
+  bool _isHobbyAvailableForDate(Hobby hobby, DateTime date) {
+    final weekday = date.weekday; // 1 = Monday, 7 = Sunday
+    
+    switch (hobby.repeatMode.toLowerCase()) {
+      case 'daily':
+        return true;
+      case 'weekly':
+        if (hobby.customDay != null) {
+          // customDay: 0 = Monday, 6 = Sunday (convert to match weekday)
+          return (hobby.customDay! + 1) == weekday;
+        }
+        return false;
+      case 'monthly':
+        if (hobby.customDay != null) {
+          return date.day == hobby.customDay;
+        }
+        return false;
+      default:
+        return true;
+    }
+  }
+
+  String _getFrequencyText(String repeatMode) {
+    switch (repeatMode.toLowerCase()) {
+      case 'daily':
+        return 'Every day';
+      case 'weekly':
+        return '1 time a week';
+      case 'monthly':
+        return 'Monthly goal';
+      default:
+        return 'Daily goal';
+    }
+  }
+
+  Color _getPriorityColor(String priority) {
+    switch (priority.toLowerCase()) {
+      case 'high':
+        return Colors.red;
+      case 'medium':
+        return Colors.amber;
+      case 'low':
+        return Colors.green;
+      case 'none':
+      default:
+        return const Color(0xFF6C3FFF); // Default purple
+    }
+  }
+
+  Widget _buildBottomNav() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1733),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: const Color(0xFF3D3560),
+          width: 1,
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Container(
+          height: 70,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItemIcon(Icons.check_circle, 0),
+              _buildNavItemIcon(Icons.list_alt, 1),
+              _buildCreateButton(),
+              _buildNavItemIcon(Icons.local_fire_department, 2),
+              _buildNavItemIcon(Icons.settings, 3),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCreateButton() {
+    return GestureDetector(
+      onTap: () async {
+        await Navigator.push(
+          context,
+          SlidePageRoute(
+            page: const AddHobbyScreen(),
+            direction: AxisDirection.up,
+          ),
+        );
+        await widget.onRefresh();
+      },
+      child: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6C3FFF), Color(0xFF8B5FFF)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF6C3FFF).withOpacity(0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Icon(
+          Icons.add,
+          color: Colors.white,
+          size: 28,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItemIcon(IconData icon, int index) {
+    final isSelected = index == 2; // Analytics is now index 2
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => widget.onNavigate(index),
+          borderRadius: BorderRadius.circular(24),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: isSelected
+                ? BoxDecoration(
+                    border: Border.all(
+                      color: const Color(0xFFFF6B35),
+                      width: 2,
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                  )
+                : null,
+            child: Icon(
+              icon,
+              color: isSelected ? const Color(0xFFFF6B35) : Colors.white38,
+              size: 26,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class PerformanceChartPainter extends CustomPainter {
+  final List<double> data;
+  final int? selectedIndex;
+  final DateTime? earliestDate; // Track earliest completion date
+
+  PerformanceChartPainter(this.data, {this.selectedIndex, this.earliestDate});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (data.isEmpty) return;
+
+    final solidPaint = Paint()
+      ..color = const Color(0xFF590df2)
+      ..strokeWidth = 4
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final dottedPaint = Paint()
+      ..color = const Color(0xFF590df2).withOpacity(0.4)
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          const Color(0xFF590df2).withOpacity(0.3),
+          const Color(0xFF590df2).withOpacity(0),
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..style = PaintingStyle.fill;
+
+    // Find the index where future projection starts (after today)
+    // Data is ordered from oldest to newest (today is the last element)
+    int todayIndex = data.length - 1; // Last element is always today
+    
+    final maxValue = data.isEmpty ? 1.0 : data.reduce(math.max);
+    final minValue = data.isEmpty ? 0.0 : data.reduce(math.min);
+    final range = maxValue - minValue;
+
+    final path = Path();
+    final fillPath = Path();
+    final dottedPath = Path();
+    
+    List<Offset> points = [];
+
+    // Calculate all points first
+    for (int i = 0; i < data.length; i++) {
+      final x = (i / math.max(data.length - 1, 1)) * size.width;
+      final normalizedValue = range > 0 ? (data[i] - minValue) / range : 0.5;
+      final y = size.height - (normalizedValue * size.height * 0.8) - (size.height * 0.1);
+      points.add(Offset(x, y));
+    }
+
+    if (points.isEmpty) return;
+
+    // Start paths
+    fillPath.moveTo(0, size.height);
+    fillPath.lineTo(points[0].dx, points[0].dy);
+    path.moveTo(points[0].dx, points[0].dy);
+
+    // Draw smooth curves using cubic bezier
+    for (int i = 0; i < points.length - 1; i++) {
+      final p0 = i > 0 ? points[i - 1] : points[i];
+      final p1 = points[i];
+      final p2 = points[i + 1];
+      final p3 = i < points.length - 2 ? points[i + 2] : points[i + 1];
+
+      // Calculate control points for smooth curve with higher tension for smoother appearance
+      final tension = 0.25; // Reduced from 0.4 for smoother curves
+      final cp1x = p1.dx + (p2.dx - p0.dx) * tension;
+      final cp1y = p1.dy + (p2.dy - p0.dy) * tension;
+      final cp2x = p2.dx - (p3.dx - p1.dx) * tension;
+      final cp2y = p2.dy - (p3.dy - p1.dy) * tension;
+
+      // Decide whether this segment should be solid or dotted
+      // Solid for past/present (up to today), dotted for future
+      if (i < todayIndex) {
+        // Solid line for past and today
+        path.cubicTo(cp1x, cp1y, cp2x, cp2y, p2.dx, p2.dy);
+      } else {
+        // Dotted line for future projection
+        if (i == todayIndex) {
+          dottedPath.moveTo(p1.dx, p1.dy);
+        }
+        dottedPath.cubicTo(cp1x, cp1y, cp2x, cp2y, p2.dx, p2.dy);
+      }
+      
+      fillPath.cubicTo(cp1x, cp1y, cp2x, cp2y, p2.dx, p2.dy);
+    }
+
+    // Close fill path
+    fillPath.lineTo(points.last.dx, size.height);
+    fillPath.lineTo(0, size.height);
+    fillPath.close();
+
+    // Draw gradient fill and lines
+    canvas.drawPath(fillPath, fillPaint);
+    
+    // Draw solid line for past/present data
+    canvas.drawPath(path, solidPaint);
+    
+    // Draw dotted line for future projection
+    if (todayIndex < data.length - 1) {
+      _drawDashedPath(canvas, dottedPath, dottedPaint);
+    }
+
+    // NOTE: Data point pins/circles removed as per user request
+
+    // Draw selected point indicator (for tooltip interaction)
+    if (selectedIndex != null && selectedIndex! >= 0 && selectedIndex! < points.length) {
+      final point = points[selectedIndex!];
+      
+      // Draw vertical line
+      final linePaint = Paint()
+        ..color = const Color(0xFF590df2).withOpacity(0.3)
+        ..strokeWidth = 1.5
+        ..style = PaintingStyle.stroke;
+      canvas.drawLine(
+        Offset(point.dx, 0),
+        Offset(point.dx, size.height),
+        linePaint,
+      );
+
+      // Draw outer glow circle
+      final glowPaint = Paint()
+        ..color = const Color(0xFF590df2).withOpacity(0.3)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(point, 10, glowPaint);
+
+      // Draw main circle
+      final circlePaint = Paint()
+        ..color = const Color(0xFF590df2)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(point, 6, circlePaint);
+
+      // Draw white outline
+      final circleOutlinePaint = Paint()
+        ..color = Colors.white
+        ..strokeWidth = 2
+        ..style = PaintingStyle.stroke;
+      canvas.drawCircle(point, 6, circleOutlinePaint);
+    }
+  }
+
+  void _drawDashedPath(Canvas canvas, Path path, Paint paint) {
+    final dashWidth = 8.0;
+    final dashSpace = 6.0;
+    
+    final metrics = path.computeMetrics();
+    for (final metric in metrics) {
+      double distance = 0.0;
+      bool draw = true;
+      
+      while (distance < metric.length) {
+        final length = draw ? dashWidth : dashSpace;
+        final end = math.min(distance + length, metric.length);
+        
+        if (draw) {
+          final extractPath = metric.extractPath(distance, end);
+          canvas.drawPath(extractPath, paint);
+        }
+        
+        distance = end;
+        draw = !draw;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(PerformanceChartPainter oldDelegate) {
+    return oldDelegate.selectedIndex != selectedIndex || 
+           oldDelegate.data != data ||
+           oldDelegate.earliestDate != earliestDate;
+  }
+}

@@ -1,0 +1,39 @@
+feat: Add comprehensive CI/CD pipeline with GitHub Actions
+
+Added automated CI/CD pipeline with the following capabilities:
+
+✅ Pre-checks:
+  - Flutter analyze for code quality
+  - Dart format validation
+
+🔒 Security Checks:
+  - Dependency vulnerability scanning
+  - Secret detection in codebase
+  - Security TODO identification
+
+🧪 Testing:
+  - Unit tests with coverage reporting
+  - Widget tests
+
+📦 Build Automation:
+  - Android debug APK
+  - Android release APK
+  - Automatic artifact upload (30-day retention)
+  - iOS build template (commented out)
+
+📊 Features:
+  - Runs on push/PR to main/develop branches
+  - Manual workflow dispatch support
+  - Build summary with status table
+  - Downloadable APKs from Actions tab
+
+Files Added:
+- .github/workflows/ci.yml - Main pipeline configuration
+- .github/workflows/README.md - Pipeline documentation
+- .github/workflows/BADGES.md - Status badge templates
+
+Next Steps:
+- Push to GitHub to trigger first pipeline run
+- Add status badges to main README.md
+- Configure iOS build when ready
+- Set up automated deployment (optional)
